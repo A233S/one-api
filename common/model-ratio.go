@@ -98,24 +98,9 @@ func GetModelRatio(name string) float64 {
 
 func GetCompletionRatio(name string) float64 {
 	if strings.HasPrefix(name, "gpt-3.5") {
-		if strings.HasSuffix(name, "1106") {
-			return 2
-		}
-		if name == "gpt-3.5-turbo" || name == "gpt-3.5-turbo-16k" {
-			// TODO: clear this after 2023-12-11
-			now := time.Now()
-			// https://platform.openai.com/docs/models/continuous-model-upgrades
-			// if after 2023-12-11, use 2
-			if now.After(time.Date(2023, 12, 11, 0, 0, 0, 0, time.UTC)) {
-				return 2
-			}
-		}
 		return 1.333333
 	}
 	if strings.HasPrefix(name, "gpt-4") {
-		if strings.HasSuffix(name, "preview") {
-			return 3
-		}
 		return 2
 	}
 	if strings.HasPrefix(name, "claude-instant-1") {
