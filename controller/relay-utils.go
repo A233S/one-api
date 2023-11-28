@@ -117,14 +117,14 @@ func errorWrapper(err error, code string, statusCode int) *OpenAIErrorWithStatus
 	}
 }
 
-func shouldTemporarilyDisableChannel(c *gin.Context, err *OpenAIError, statusCode int) bool {
-	if !c.GetBool("overFrequencyAutoDisable") {
+func shouldDisableChannel(err *OpenAIError, statusCode int) bool {
+	if !common.AutomaticDisableChannelEnabled {
 		return false
 	}
 	if err == nil {
 		return false
 	}
-	if statusCode != http.StatusOK {
+	if statusCode == http.StatusUnauthorized {
 		return true
 	}
 	if err.Type == "insufficient_quota" || err.Code == "invalid_api_key" || err.Code == "account_deactivated" {
@@ -133,7 +133,6 @@ func shouldTemporarilyDisableChannel(c *gin.Context, err *OpenAIError, statusCod
 	return false
 }
 
-
 func shouldTemporarilyDisableChannel(c *gin.Context, err *OpenAIError, statusCode int) bool {
 	if !c.GetBool("overFrequencyAutoDisable") {
 		return false
@@ -141,7 +140,7 @@ func shouldTemporarilyDisableChannel(c *gin.Context, err *OpenAIError, statusCod
 	if err == nil {
 		return false
 	}
-	if statusCode == http.StatusTooManyRequests {
+	if statusCode != http.StatusOK {
 		return true
 	}
 	if err.Type == "insufficient_quota" || err.Code == "invalid_api_key" || err.Code == "account_deactivated" {
