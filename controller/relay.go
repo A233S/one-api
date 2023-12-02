@@ -295,6 +295,46 @@ func Relay(c *gin.Context) {
 				channelName := c.GetString("channel_name")
 				disableChannel(channelId, channelName, err.Message)
 			}
+			if shouldTemporarilyDisableChannel(c, &err.OpenAIError, err.StatusCode) {
+			channelId := c.GetInt("channel_id")
+			channelName := c.GetString("channel_name")
+			disableChannel(channelId, channelName, err.Message)
+			channel, err2 := model.GetChannelById(channelId, true)
+			if err2 != nil {
+				common.SysError(fmt.Sprintf("failed to get channel: %s", err2.Error()))
+				return
+			}
+			// 启动goroutine执行定时任务,定时轮训需要启动的任务
+			go func() {
+				for {
+					// 5分钟轮训一次通道是否复活
+					time.Sleep(5 * time.Minute)
+					// 模拟修改数据状态的过程
+					testRequest := buildTestRequest()
+					err3, aiError := testChannel(channel, *testRequest)
+					if err3 != nil {
+						common.SysError(fmt.Sprintf("failed to test channel: %s", err3.Error()))
+						continue
+					}
+					if aiError != nil {
+						common.SysError(fmt.Sprintf("failed to test channel: %s", aiError.Message))
+						continue
+					}
+					// 自动启用通道
+					channel.Status = 1
+					err := channel.Update()
+					if err != nil {
+						common.SysError(fmt.Sprintf("failed to update channel: %s", err.Error()))
+						return
+					}
+					// 修改数据状态成功
+					fmt.Println("数据状态修改成功")
+					// 关闭当前goroutine
+					return
+				}
+			}()
+
+		}
 		}()
 
 		if err.StatusCode == http.StatusTooManyRequests {
