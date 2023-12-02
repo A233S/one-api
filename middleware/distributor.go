@@ -40,7 +40,10 @@ func Distribute() func(c *gin.Context) {
 		} else {
 			// Select a channel for the user
 			var modelRequest ModelRequest
-			err := common.UnmarshalBodyReusable(c, &modelRequest)
+			var err error
+			if !strings.HasPrefix(c.Request.URL.Path, "/v1/audio") {
+				err = common.UnmarshalBodyReusable(c, &modelRequest)
+			}
 			if err != nil {
 				abortWithMessage(c, http.StatusBadRequest, "无效的请求")
 				return
@@ -82,6 +85,8 @@ func Distribute() func(c *gin.Context) {
 		c.Set("async_num", channel.AsyncNum)
 		c.Set("full_url", channel.FullURL)
 		c.Set("model_mapping", channel.GetModelMapping())
+		c.Set("retryInterval", *channel.RetryInterval)
+		c.Set("overFrequencyAutoDisable", *channel.OverFrequencyAutoDisable)
 		c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", channel.Key))
 		c.Set("base_url", channel.GetBaseURL())
 		switch channel.Type {
