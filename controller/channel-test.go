@@ -88,11 +88,11 @@ func testChannel(channel *model.Channel, request ChatRequest) (err error, openai
 func buildTestRequest() *ChatRequest {
 	testRequest := &ChatRequest{
 		Model:     "", // this will be set later
-		MaxTokens: 1,
+		MaxTokens: 4000,
 	}
 	testMessage := Message{
 		Role:    "user",
-		Content: "Ping",
+		Content: "OnlySay1",
 	}
 	testRequest.Messages = append(testRequest.Messages, testMessage)
 	return testRequest
