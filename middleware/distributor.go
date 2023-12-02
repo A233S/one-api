@@ -82,7 +82,8 @@ func Distribute() func(c *gin.Context) {
 		c.Set("async_num", channel.AsyncNum)
 		c.Set("full_url", channel.FullURL)
 		c.Set("model_mapping", channel.GetModelMapping())
-		c.Set("overFrequencyAutoDisable", channel.OverFrequencyAutoDisable)
+		c.Set("retryInterval", *channel.RetryInterval)
+		c.Set("overFrequencyAutoDisable", *channel.OverFrequencyAutoDisable)
 		c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", channel.Key))
 		c.Set("base_url", channel.GetBaseURL())
 		switch channel.Type {
