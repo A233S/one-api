@@ -25,6 +25,8 @@ type Channel struct {
 	UsedQuota          int64   `json:"used_quota" gorm:"bigint;default:0"`
 	AsyncNum           int     `json:"async_num" gorm:"column:async_num;default:1"`
 	ModelMapping       *string `json:"model_mapping" gorm:"type:varchar(1024);default:''"`
+	Sort                     *int    `json:"sort"`
+	OverFrequencyAutoDisable *bool   `json:"overFrequencyAutoDisable" gorm:"default:0"`
 	Priority           *int64  `json:"priority" gorm:"bigint;default:0"`
 }
 
