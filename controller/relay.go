@@ -295,9 +295,13 @@ func Relay(c *gin.Context) {
 				channelName := c.GetString("channel_name")
 				disableChannel(channelId, channelName, err.Message)
 			}
-			if shouldTemporarilyDisableChannel(c, &err.OpenAIError, err.StatusCode) {
+		if shouldTemporarilyDisableChannel(c, &err.OpenAIError, err.StatusCode) {
 			channelId := c.GetInt("channel_id")
 			channelName := c.GetString("channel_name")
+			retryInterval := c.GetInt("retryInterval")
+			if retryInterval == 0 {
+				retryInterval = 300
+			}
 			disableChannel(channelId, channelName, err.Message)
 			channel, err2 := model.GetChannelById(channelId, true)
 			if err2 != nil {
@@ -308,7 +312,7 @@ func Relay(c *gin.Context) {
 			go func() {
 				for {
 					// 5分钟轮训一次通道是否复活
-					time.Sleep(5 * time.Minute)
+					time.Sleep(time.Duration(retryInterval) * time.Second)
 					// 模拟修改数据状态的过程
 					testRequest := buildTestRequest()
 					err3, aiError := testChannel(channel, *testRequest)
