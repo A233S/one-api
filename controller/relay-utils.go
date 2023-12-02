@@ -67,6 +67,22 @@ func getTokenNum(tokenEncoder *tiktoken.Tiktoken, text string) int {
 	return len(tokenEncoder.Encode(text, nil, nil))
 }
 
+func shouldTemporarilyDisableChannel(c *gin.Context, err *OpenAIError, statusCode int) bool {
+	if !c.GetBool("overFrequencyAutoDisable") {
+		return false
+	}
+	if err == nil {
+		return false
+	}
+	if statusCode == http.StatusTooManyRequests {
+		return true
+	}
+	if err.Type == "insufficient_quota" || err.Code == "invalid_api_key" || err.Code == "account_deactivated" {
+		return true
+	}
+	return false
+}
+
 func countTokenMessages(messages []Message, model string) int {
 	tokenEncoder := getTokenEncoder(model)
 	// Reference:
