@@ -10,19 +10,25 @@ type Ability struct {
 	Model     string `json:"model" gorm:"primaryKey;autoIncrement:false"`
 	ChannelId int    `json:"channel_id" gorm:"primaryKey;autoIncrement:false;index"`
 	Enabled   bool   `json:"enabled"`
-	// 新增排序字段,默认为0
-	Sort *int `json:"sort" gorm:"default:0"`
+	Priority  *int64 `json:"priority" gorm:"bigint;default:0;index"`
 }
 
 func GetRandomSatisfiedChannel(group string, model string) (*Channel, error) {
 	ability := Ability{}
+	groupCol := "`group`"
+	trueVal := "1"
+	if common.UsingPostgreSQL {
+		groupCol = `"group"`
+		trueVal = "true"
+	}
+
 	var err error = nil
-	if common.UsingSQLite {
-		//	根据sort和random排序
-		err = DB.Where("`group` = ? and model = ? and enabled = 1", group, model).Order("sort desc, RANDOM()").Limit(1).First(&ability).Error
+	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(groupCol+" = ? and model = ? and enabled = "+trueVal, group, model)
+	channelQuery := DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = (?)", group, model, maxPrioritySubQuery)
+	if common.UsingSQLite || common.UsingPostgreSQL {
+		err = channelQuery.Order("RANDOM()").First(&ability).Error
 	} else {
-		//	根据sort和random排序
-		err = DB.Where("`group` = ? and model = ? and enabled = 1", group, model).Order("sort desc, RAND()").Limit(1).First(&ability).Error
+		err = channelQuery.Order("RAND()").First(&ability).Error
 	}
 	if err != nil {
 		return nil, err
@@ -44,7 +50,7 @@ func (channel *Channel) AddAbilities() error {
 				Model:     model,
 				ChannelId: channel.Id,
 				Enabled:   channel.Status == common.ChannelStatusEnabled,
-				Sort:      channel.Sort,
+				Priority:  channel.Priority,
 			}
 			abilities = append(abilities, ability)
 		}
