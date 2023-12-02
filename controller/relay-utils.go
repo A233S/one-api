@@ -144,6 +144,22 @@ func shouldDisableChannel(err *OpenAIError, statusCode int) bool {
 	return false
 }
 
+func shouldTemporarilyDisableChannel(c *gin.Context, err *OpenAIError, statusCode int) bool {
+	if !c.GetBool("overFrequencyAutoDisable") {
+		return false
+	}
+	if err == nil {
+		return false
+	}
+	if statusCode == http.StatusTooManyRequests {
+		return true
+	}
+	if err.Type == "insufficient_quota" || err.Code == "invalid_api_key" || err.Code == "account_deactivated" {
+		return true
+	}
+	return false
+}
+
 func setEventStreamHeaders(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
