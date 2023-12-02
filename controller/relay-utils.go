@@ -151,7 +151,7 @@ func shouldTemporarilyDisableChannel(c *gin.Context, err *OpenAIError, statusCod
 	if err == nil {
 		return false
 	}
-	if statusCode == http.StatusTooManyRequests {
+	if statusCode != http.StatusOK {
 		return true
 	}
 	if err.Type == "insufficient_quota" || err.Code == "invalid_api_key" || err.Code == "account_deactivated" {
