@@ -25,16 +25,34 @@ func Distribute() func(c *gin.Context) {
 		if ok {
 			id, err := strconv.Atoi(channelId.(string))
 			if err != nil {
-				abortWithMessage(c, http.StatusBadRequest, "无效的渠道 Id")
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": gin.H{
+						"message": "无效的渠道 ID",
+						"type":    "one_api_error",
+					},
+				})
+				c.Abort()
 				return
 			}
 			channel, err = model.GetChannelById(id, true)
 			if err != nil {
-				abortWithMessage(c, http.StatusBadRequest, "无效的渠道 Id")
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": gin.H{
+						"message": "无效的渠道 ID",
+						"type":    "one_api_error",
+					},
+				})
+				c.Abort()
 				return
 			}
 			if channel.Status != common.ChannelStatusEnabled {
-				abortWithMessage(c, http.StatusForbidden, "该渠道已被禁用")
+				c.JSON(http.StatusForbidden, gin.H{
+					"error": gin.H{
+						"message": "该渠道已被禁用",
+						"type":    "one_api_error",
+					},
+				})
+				c.Abort()
 				return
 			}
 		} else {
@@ -42,7 +60,13 @@ func Distribute() func(c *gin.Context) {
 			var modelRequest ModelRequest
 			err := common.UnmarshalBodyReusable(c, &modelRequest)
 			if err != nil {
-				abortWithMessage(c, http.StatusBadRequest, "无效的请求")
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": gin.H{
+						"message": "无效的请求",
+						"type":    "one_api_error",
+					},
+				})
+				c.Abort()
 				return
 			}
 			if strings.HasPrefix(c.Request.URL.Path, "/v1/moderations") {
@@ -57,12 +81,7 @@ func Distribute() func(c *gin.Context) {
 			}
 			if strings.HasPrefix(c.Request.URL.Path, "/v1/images/generations") {
 				if modelRequest.Model == "" {
-					modelRequest.Model = "dall-e-2"
-				}
-			}
-			if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/transcriptions") || strings.HasPrefix(c.Request.URL.Path, "/v1/audio/translations") {
-				if modelRequest.Model == "" {
-					modelRequest.Model = "whisper-1"
+					modelRequest.Model = "dall-e"
 				}
 			}
 			channel, err = model.CacheGetRandomSatisfiedChannel(userGroup, modelRequest.Model)
@@ -72,25 +91,25 @@ func Distribute() func(c *gin.Context) {
 					common.SysError(fmt.Sprintf("渠道不存在：%d", channel.Id))
 					message = "数据库一致性已被破坏，请联系管理员"
 				}
-				abortWithMessage(c, http.StatusServiceUnavailable, message)
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"error": gin.H{
+						"message": message,
+						"type":    "one_api_error",
+					},
+				})
+				c.Abort()
 				return
 			}
 		}
 		c.Set("channel", channel.Type)
 		c.Set("channel_id", channel.Id)
 		c.Set("channel_name", channel.Name)
-		c.Set("async_num", channel.AsyncNum)
-		c.Set("full_url", channel.FullURL)
-		c.Set("model_mapping", channel.GetModelMapping())
+		c.Set("model_mapping", channel.ModelMapping)
+		c.Set("overFrequencyAutoDisable", channel.OverFrequencyAutoDisable)
 		c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", channel.Key))
-		c.Set("base_url", channel.GetBaseURL())
-		switch channel.Type {
-		case common.ChannelTypeAzure:
+		c.Set("base_url", channel.BaseURL)
+		if channel.Type == common.ChannelTypeAzure || channel.Type == common.ChannelTypeXunfei {
 			c.Set("api_version", channel.Other)
-		case common.ChannelTypeXunfei:
-			c.Set("api_version", channel.Other)
-		case common.ChannelTypeAIProxyLibrary:
-			c.Set("library_id", channel.Other)
 		}
 		c.Next()
 	}
