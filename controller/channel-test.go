@@ -1,22 +1,21 @@
 package controller
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"one-api/common"
 	"one-api/model"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
-func testChannel(channel *model.Channel, request ChatRequest) (error, *OpenAIError) {
+func testChannel(channel *model.Channel, request ChatRequest) (err error, openaiErr *OpenAIError) {
 	switch channel.Type {
 	case common.ChannelTypePaLM:
 		fallthrough
@@ -34,15 +33,20 @@ func testChannel(channel *model.Channel, request ChatRequest) (error, *OpenAIErr
 		return errors.New("该渠道类型当前版本不支持测试，请手动测试"), nil
 	case common.ChannelTypeAzure:
 		request.Model = "gpt-35-turbo"
+		defer func() {
+			if err != nil {
+				err = errors.New("请确保已在 Azure 上创建了 gpt-35-turbo 模型，并且 apiVersion 已正确填写！")
+			}
+		}()
 	default:
 		request.Model = "gpt-3.5-turbo"
 	}
 	requestURL := common.ChannelBaseURLs[channel.Type]
 	if channel.Type == common.ChannelTypeAzure {
-		requestURL = fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=2023-03-15-preview", channel.BaseURL, request.Model)
+		requestURL = fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=2023-03-15-preview", channel.GetBaseURL(), request.Model)
 	} else {
-		if channel.BaseURL != "" {
-			requestURL = channel.BaseURL
+		if channel.GetBaseURL() != "" {
+			requestURL = channel.GetBaseURL()
 		}
 		requestURL += "/v1/chat/completions"
 	}
@@ -67,34 +71,11 @@ func testChannel(channel *model.Channel, request ChatRequest) (error, *OpenAIErr
 	}
 	defer resp.Body.Close()
 	var response TextResponse
-	// 解析resp.Body
-	scanner := bufio.NewScanner(resp.Body)
-	jsonRes := ""
-	streamConcatContent := ""
-	for scanner.Scan() {
-		var streamResponse ChatCompletionsStreamResponse
-		line := scanner.Text()
-		// 切掉前面的data:
-		line = strings.TrimPrefix(line, "data: ")
-		// [DONE]跳过
-		if line == "[DONE]" {
-			continue
-		}
-		jsonRes += line
-		// 解析 JSON 对象
-		err = json.Unmarshal([]byte(line), &streamResponse)
-		if err == nil {
-			streamConcatContent += streamResponse.Choices[0].Delta.Content
-		}
-	}
-	if streamConcatContent == "1" {
-		return nil, nil
-	}
-	err = json.Unmarshal([]byte(jsonRes), &response)
+	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
 		return err, nil
 	}
-	if response.Usage.CompletionTokens == 0 && (response.Choices == nil || len(response.Choices) == 0 || response.Choices[0].Content != "1") {
+	if response.Usage.CompletionTokens == 0 {
 		return errors.New(fmt.Sprintf("type %s, code %v, message %s", response.Error.Type, response.Error.Code, response.Error.Message)), &response.Error
 	}
 	return nil, nil
@@ -103,11 +84,12 @@ func testChannel(channel *model.Channel, request ChatRequest) (error, *OpenAIErr
 func buildTestRequest() *ChatRequest {
 	testRequest := &ChatRequest{
 		Model:     "", // this will be set later
-		MaxTokens: 1,
+		MaxTokens: 2000,
 	}
+	content, _ := json.Marshal("only say 1")
 	testMessage := Message{
 		Role:    "user",
-		Content: "say 1\nmax_tokens=1",
+		Content: content,
 	}
 	testRequest.Messages = append(testRequest.Messages, testMessage)
 	return testRequest
@@ -161,7 +143,7 @@ func disableChannel(channelId int, channelName string, reason string) {
 	if common.RootUserEmail == "" {
 		common.RootUserEmail = model.GetRootUserEmail()
 	}
-	model.UpdateChannelStatusById(channelId, common.ChannelStatusDisabled)
+	model.UpdateChannelStatusById(channelId, common.ChannelStatusAutoDisabled)
 	subject := fmt.Sprintf("通道「%s」（#%d）已被禁用", channelName, channelId)
 	content := fmt.Sprintf("通道「%s」（#%d）已被禁用，原因：%s", channelName, channelId, reason)
 	err := common.SendEmail(subject, common.RootUserEmail, content)
@@ -199,11 +181,21 @@ func testAllChannels(notify bool) error {
 			err, openaiErr := testChannel(channel, *testRequest)
 			tok := time.Now()
 			milliseconds := tok.Sub(tik).Milliseconds()
+
+			ban := false
 			if milliseconds > disableThreshold {
 				err = errors.New(fmt.Sprintf("响应时间 %.2fs 超过阈值 %.2fs", float64(milliseconds)/1000.0, float64(disableThreshold)/1000.0))
-				disableChannel(channel.Id, channel.Name, err.Error())
+				ban = true
 			}
-			if shouldDisableChannel(openaiErr, -1) {
+			if openaiErr != nil {
+				err = errors.New(fmt.Sprintf("type %s, code %v, message %s", openaiErr.Type, openaiErr.Code, openaiErr.Message))
+				ban = true
+			}
+			// parse *int to bool
+			if channel.AutoBan != nil && *channel.AutoBan == 0 {
+				ban = false
+			}
+			if shouldDisableChannel(openaiErr, -1) && ban {
 				disableChannel(channel.Id, channel.Name, err.Error())
 			}
 			channel.UpdateResponseTime(milliseconds)
