@@ -80,7 +80,7 @@ func testChannel(channel *model.Channel, request ChatRequest) (error, *OpenAIErr
 func buildTestRequest() *ChatRequest {
 	testRequest := &ChatRequest{
 		Model:     "", // this will be set later
-		MaxTokens: 8000,
+		MaxTokens: 4087,
 	}
 	testMessage := Message{
 		Role:    "user",
