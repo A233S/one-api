@@ -32,8 +32,10 @@ func testChannel(channel *model.Channel, request ChatRequest) (error, *OpenAIErr
 		return errors.New("该渠道类型当前版本不支持测试，请手动测试"), nil
 	case common.ChannelTypeAzure:
 		request.Model = "gpt-35-turbo"
-	default:
+	case common.ChannelTypeOpenAI:
 		request.Model = "gpt-3.5-turbo"
+	default:
+		request.Model = "gpt-4"
 	}
 	requestURL := common.ChannelBaseURLs[channel.Type]
 	if channel.Type == common.ChannelTypeAzure {
@@ -78,7 +80,7 @@ func testChannel(channel *model.Channel, request ChatRequest) (error, *OpenAIErr
 func buildTestRequest() *ChatRequest {
 	testRequest := &ChatRequest{
 		Model:     "", // this will be set later
-		MaxTokens: 4000,
+		MaxTokens: 8000,
 	}
 	testMessage := Message{
 		Role:    "user",
