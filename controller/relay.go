@@ -220,25 +220,28 @@ func Relay(c *gin.Context) {
 
 go func() {
     tryCount := 0 // 初始化尝试计数器
+    waitTime := 5 // 初始等待时间为 5 分钟
     for {
         if tryCount >= 20 { // 检查尝试次数是否达到限制
             fmt.Println("已超过最大重试次数，停止尝试")
             return
         }
 
-        // 5分钟轮训一次通道是否复活
-        time.Sleep(time.Duration(retryInterval) * time.Second)
+        // 根据等差数列调整等待时间
+        time.Sleep(time.Duration(waitTime) * time.Minute)
         // 模拟修改数据状态的过程
         testRequest := buildTestRequest()
         err3, aiError := testChannel(channel, *testRequest)
         if err3 != nil {
             common.SysError(fmt.Sprintf("failed to test channel: %s", err3.Error()))
             tryCount++ // 增加尝试计数
+            waitTime += 60 // 按照等差数列增加等待时间
             continue
         }
         if aiError != nil {
             common.SysError(fmt.Sprintf("failed to test channel: %s", aiError.Message))
             tryCount++ // 增加尝试计数
+            waitTime += 60 // 按照等差数列增加等待时间
             continue
         }
         // 自动启用通道
@@ -254,6 +257,7 @@ go func() {
         return
     }
 }()
+
 
 // ... [后续代码]
 
