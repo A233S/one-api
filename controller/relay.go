@@ -220,7 +220,7 @@ func Relay(c *gin.Context) {
 
 go func() {
     tryCount := 0 // 初始化尝试计数器
-    waitTime := 15 // 初始等待时间为 15 分钟
+    waitTime := 1 // 初始等待时间为 15 分钟
     for {
         if tryCount >= 20 { // 检查尝试次数是否达到限制
             fmt.Println("Auto channel test: %s 已超过最大重试次数，停止尝试")
