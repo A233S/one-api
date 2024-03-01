@@ -3,10 +3,8 @@ permissions:
   contents: write
 
 on:
-  push:
-    tags:
-      - '*'
-      - '!*-alpha*'
+  workflow_dispatch:
+  
 jobs:
   release:
     runs-on: windows-latest
@@ -37,12 +35,9 @@ jobs:
         run: |
           go mod download
           go build -ldflags "-s -w -X 'one-api/common.Version=$(git describe --tags)'" -o one-api.exe
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name : upload apk
+        uses: actions/upload-artifact@master
+        if: always()
         with:
-          files: one-api.exe
-          draft: true
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: xupdate_apk
+          path: ${{ github.workspace }}/one-api.exe
