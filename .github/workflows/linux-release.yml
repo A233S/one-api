@@ -31,11 +31,14 @@ jobs:
       - name: Build Backend (amd64)
         run: |
           go mod download
-          go build -ldflags "-s -w -X 'one-api/common.Version=$(git describe --tags)' -extldflags '-static'" -o one-api
+          #linux
+          #go build -ldflags "-s -w -X 'one-api/common.Version=$(git describe --tags)' -extldflags '-static'" -o one-api
+          #windows
+          go build -ldflags "-s -w -X 'one-api/common.Version=$(git describe --tags)'" -o one-api.exe
 
       - name : upload apk
         uses: actions/upload-artifact@master
         if: always()
         with:
           name: xupdate_apk
-          path: ${{ github.workspace }}/one-api
+          path: ${{ github.workspace }}/one-api.exe
